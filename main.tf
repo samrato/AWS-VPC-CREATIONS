@@ -1,7 +1,4 @@
-# Define the AWS provider
-provider "aws" {
-  region = var.aws_region
-}
+# Main Terraform configuration file
 
 # Create a VPC
 resource "aws_vpc" "main" {
@@ -9,9 +6,12 @@ resource "aws_vpc" "main" {
   enable_dns_support   = true
   enable_dns_hostnames = true
 
-  tags = {
-    Name = "main-vpc"
-  }
+  tags = merge(
+    {
+      Name = "main-vpc"
+    },
+    var.tags
+  )
 }
 
 # Create a Public Subnet
@@ -21,18 +21,24 @@ resource "aws_subnet" "public_subnet" {
   map_public_ip_on_launch = true
   availability_zone       = var.availability_zone
 
-  tags = {
-    Name = "public-subnet"
-  }
+  tags = merge(
+    {
+      Name = "public-subnet"
+    },
+    var.tags
+  )
 }
 
 # Create an Internet Gateway
 resource "aws_internet_gateway" "igw" {
   vpc_id = aws_vpc.main.id
 
-  tags = {
-    Name = "main-igw"
-  }
+  tags = merge(
+    {
+      Name = "main-igw"
+    },
+    var.tags
+  )
 }
 
 # Attach Route Table for Public Subnet
@@ -44,9 +50,12 @@ resource "aws_route_table" "public_rt" {
     gateway_id = aws_internet_gateway.igw.id
   }
 
-  tags = {
-    Name = "public-route-table"
-  }
+  tags = merge(
+    {
+      Name = "public-route-table"
+    },
+    var.tags
+  )
 }
 
 # Associate Route Table with Public Subnet
@@ -59,20 +68,16 @@ resource "aws_route_table_association" "public_rt_assoc" {
 resource "aws_security_group" "ec2_sg" {
   vpc_id = aws_vpc.main.id
 
-  # Allow SSH Access (22)
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  # Allow HTTP Access (80)
-  ingress {
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+  # Dynamic ingress rules based on the provided list of ports
+  dynamic "ingress" {
+    for_each = var.public_ingress_ports
+    content {
+      from_port   = ingress.value
+      to_port     = ingress.value
+      protocol    = "tcp"
+      cidr_blocks = ["0.0.0.0/0"]
+      description = "Allow port ${ingress.value}"
+    }
   }
 
   # Allow all outbound traffic
@@ -83,31 +88,37 @@ resource "aws_security_group" "ec2_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags = {
-    Name = "ec2-security-group"
-  }
+  tags = merge(
+    {
+      Name = "ec2-security-group"
+    },
+    var.tags
+  )
 }
 
 # Launch an EC2 Instance
 resource "aws_instance" "web" {
-  ami             = var.ami_id
-  instance_type   = var.instance_type
-  subnet_id       = aws_subnet.public_subnet.id
-  vpc_security_group_ids = [aws_security_group.ec2_sg.id]
+  ami                         = var.ami_id
+  instance_type               = var.instance_type
+  subnet_id                   = aws_subnet.public_subnet.id
+  vpc_security_group_ids      = [aws_security_group.ec2_sg.id]
   associate_public_ip_address = true
-  key_name        = var.key_name   # Optional: Set SSH key for access
+  key_name                    = var.key_name
+  disable_api_termination     = var.enable_termination_protection
 
-  # Install Apache automatically
-  user_data = <<-EOF
-              #!/bin/bash
-              sudo yum update -y
-              sudo yum install -y httpd
-              sudo systemctl start httpd
-              sudo systemctl enable httpd
-              echo "Hello from Terraform" > /var/www/html/index.html
-              EOF
-
-  tags = {
-    Name = "web-server"
+  lifecycle {
+    create_before_destroy = true
+    prevent_destroy       = false
+    ignore_changes        = [tags["LastModified"]]
   }
+
+  # Use external script file for user data
+  user_data = file("${path.module}/scripts/user_data.sh")
+
+  tags = merge(
+    {
+      Name = "web-server"
+    },
+    var.tags
+  )
 }

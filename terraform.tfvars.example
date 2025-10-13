@@ -1,0 +1,35 @@
+# Example Terraform variables configuration
+# Copy this file to terraform.tfvars and modify as needed
+
+# AWS Configuration
+aws_region  = "us-east-1"
+aws_profile = "default"
+
+# VPC and Subnet Configuration
+vpc_cidr           = "10.0.0.0/16"
+public_subnet_cidr = "10.0.1.0/24"
+availability_zone  = "us-east-1a"
+
+# EC2 Instance Configuration
+ami_id                      = "ami-0c55b159cbfafe1f0" # Update with latest Amazon Linux 2 AMI for your region
+instance_type               = "t2.micro"
+key_name                    = "your-key-pair-name" # REQUIRED: Replace with your EC2 key pair name
+enable_termination_protection = false
+
+# Security Group Configuration
+public_ingress_ports = [22, 80, 443] # SSH, HTTP, HTTPS
+
+# Resource Tagging
+tags = {
+  Environment = "dev"
+  Project     = "AWS-Terraform-Workshop"
+  Owner       = "YourName"
+  ManagedBy   = "Terraform"
+}
+
+# Backend Configuration
+# Note: These values are only used when setting up the backend with terraform init -backend-config flags
+# backend_s3_bucket      = "your-terraform-state-bucket"
+# backend_s3_key         = "terraform/state.tfstate"
+# backend_s3_region      = "us-east-1"
+# backend_dynamodb_table = "your-terraform-lock-table"

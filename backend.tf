@@ -1,3 +1,6 @@
+# Backend configuration for remote state storage
+# NOTE: You must initialize this backend with proper values before applying
+# terraform init -backend-config="bucket=actual-bucket-name" -backend-config="dynamodb_table=actual-table-name"
 terraform {
   backend "s3" {
     bucket         = "your-s3-bucket-name"       # Replace with your S3 bucket name
@@ -7,4 +10,3 @@ terraform {
     encrypt        = true                        # Ensures state file encryption
   }
 }
-      
